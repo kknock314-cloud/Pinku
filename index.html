@@ -5,10 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#111111">
     <title>Universal Web Player</title>
-    <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="icon-192.png">
     <style>
-        /* CSS FIX: 100dvh use kiya hai taaki mobile me controls neeche na chhupe */
         body { 
             background: #000; 
             color: #fff; 
@@ -52,8 +49,16 @@
             max-height: 100%;
             object-fit: contain;
             transition: transform 0.3s ease;
+            position: relative;
         }
-        /* FIX: flex-shrink: 0 add kiya hai taaki controls hamesha dikhe */
+        
+        .rotated-video {
+            position: absolute !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) rotate(90deg) !important;
+        }
+
         .controls { 
             padding: 12px; 
             background: #222; 
@@ -111,9 +116,10 @@
             text-align: center;
         }
         .btn-play { flex: 0.3; }
+        .btn-back { background: #fc5c65; color: white; flex: 1; display: none; }
+        .btn-back:hover { background: #eb3b5a; }
         button:hover { background: #0056b3; opacity: 0.8; }
         
-        /* Action Buttons */
         .btn-pip { background: #ff4757; flex: 1; }
         .btn-rotate { background: #e1b12c; color: #000; flex: 1; }
         .btn-fs { background: #4cd137; color: #000; flex: 1; }
@@ -122,11 +128,6 @@
             text-align: center;
             color: #888;
             padding: 20px;
-        }
-        
-        /* Rotation Class */
-        .rotated-90 {
-            transform: rotate(90deg);
         }
     </style>
 </head>
@@ -143,14 +144,15 @@
 
         <div class="controls">
             <div class="row">
-                <div class="input-wrapper">
+                <button class="btn-back" id="backBtn" onclick="goBack()">🔙 Back to Home</button>
+                <div class="input-wrapper" id="inputWrapper">
                     <input type="text" id="linkInput" placeholder="Paste Video Link here...">
                     <button class="clear-btn" onclick="clearInput()">✖</button>
                 </div>
-                <button class="btn-play" onclick="playVideo()">Play</button>
+                <button class="btn-play" id="playBtn" onclick="playVideo()">Play</button>
             </div>
             <div class="row" id="actionButtons" style="display: none;">
-                <button class="btn-rotate" onclick="rotateVideo()">🔄 Rotate 90°</button>
+                <button class="btn-rotate" id="rotateBtn" onclick="rotateVideo()">🔄 Rotate 90°</button>
                 <button class="btn-fs" onclick="toggleFullscreen()">🔲 Fullscreen</button>
                 <button class="btn-pip" onclick="togglePiP()" id="pipBtn">📺 PiP</button>
             </div>
@@ -158,21 +160,37 @@
     </div>
 
     <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js');
-            });
-        }
-
         const container = document.getElementById('playerContainer');
         const actionButtons = document.getElementById('actionButtons');
         const linkInput = document.getElementById('linkInput');
+        const inputWrapper = document.getElementById('inputWrapper');
+        const playBtn = document.getElementById('playBtn');
+        const backBtn = document.getElementById('backBtn');
         let currentVideoElement = null;
-        let currentRotation = 0;
+        
+        let isRotated = false;
 
         function clearInput() {
             linkInput.value = '';
             linkInput.focus();
+        }
+
+        function goBack() {
+            // Restore instructions and clear video
+            container.innerHTML = `
+                <div class="instructions">
+                    <h2>Paste a link below to start.</h2>
+                    <p>Supports direct video links (.mp4) and YouTube links.</p>
+                </div>
+            `;
+            currentVideoElement = null;
+            isRotated = false;
+
+            // Reset UI to step 1 (Input state)
+            inputWrapper.style.display = 'flex';
+            playBtn.style.display = 'block';
+            backBtn.style.display = 'none';
+            actionButtons.style.display = 'none';
         }
 
         function playVideo() {
@@ -183,7 +201,16 @@
             }
 
             container.innerHTML = ''; 
-            currentRotation = 0; // Reset rotation
+            
+            isRotated = false;
+            const rotateBtn = document.getElementById('rotateBtn');
+            rotateBtn.innerHTML = '🔄 Rotate 90°';
+            rotateBtn.style.background = '#e1b12c';
+            
+            // Switch UI to step 2 (Player state)
+            inputWrapper.style.display = 'none';
+            playBtn.style.display = 'none';
+            backBtn.style.display = 'block';
             actionButtons.style.display = 'flex';
 
             if(link.includes('youtube.com') || link.includes('youtu.be')) {
@@ -197,7 +224,7 @@
                 if(videoId) {
                     const iframe = document.createElement('iframe');
                     iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
-                    iframe.allow = "autoplay; encrypted-media; picture-in-picture";
+                    iframe.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
                     iframe.allowFullscreen = true;
                     container.appendChild(iframe);
                     document.getElementById('pipBtn').style.display = 'none';
@@ -219,21 +246,35 @@
 
         function rotateVideo() {
             if (!currentVideoElement) return;
-            currentRotation += 90;
-            if (currentRotation === 360) currentRotation = 0;
             
-            // Scaling logic so the rotated video fills the portrait screen nicely
-            if (currentRotation % 180 !== 0) {
-                const ratio = container.clientHeight / container.clientWidth;
-                currentVideoElement.style.transform = `rotate(${currentRotation}deg) scale(${ratio})`;
+            isRotated = !isRotated; 
+            const rotateBtn = document.getElementById('rotateBtn');
+
+            if (isRotated) {
+                const cWidth = container.clientWidth;
+                const cHeight = container.clientHeight;
+                
+                currentVideoElement.style.width = cHeight + 'px';
+                currentVideoElement.style.height = cWidth + 'px';
+                
+                currentVideoElement.classList.add('rotated-video');
+                
+                rotateBtn.innerHTML = '🔄 Rotate 0°';
+                rotateBtn.style.background = '#e17055'; 
             } else {
-                currentVideoElement.style.transform = `rotate(${currentRotation}deg) scale(1)`;
+                currentVideoElement.style.width = '100%';
+                currentVideoElement.style.height = '100%';
+                currentVideoElement.classList.remove('rotated-video');
+                
+                rotateBtn.innerHTML = '🔄 Rotate 90°';
+                rotateBtn.style.background = '#e1b12c'; 
             }
         }
 
         function toggleFullscreen() {
             if (!currentVideoElement) return;
-            const elem = container;
+            
+            const elem = currentVideoElement; 
             if (!document.fullscreenElement) {
                 if (elem.requestFullscreen) elem.requestFullscreen();
                 else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
@@ -246,7 +287,7 @@
         async function togglePiP() {
             const videoElement = document.querySelector('video');
             if (!videoElement) {
-                alert("PiP is only available for direct video links (.mp4).");
+                alert("PiP is only available for direct video links (.mp4). For YouTube, click 'Fullscreen' and then swipe to Home!");
                 return;
             }
             
