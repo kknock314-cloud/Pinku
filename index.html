@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#111111">
-    <!-- V9 FIX: This meta tag bypasses strict Referrer-based CORS blocks used by many live streams -->
+    <!-- V10 FIX 1: Bypass Referrer blocks -->
     <meta name="referrer" content="no-referrer">
+    <!-- V10 FIX 2: Automatically upgrade HTTP streams to HTTPS to prevent Mixed Content blocks -->
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
     <title>Stream Player</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
@@ -72,7 +74,7 @@
             justify-content: center;
             align-items: center;
             overflow: hidden;
-            flex: 1; /* Takes available space */
+            flex: 1;
             min-height: 200px;
         }
         video, iframe {
@@ -135,7 +137,6 @@
             flex-shrink: 0;
         }
 
-        /* Landscape Mode Rotation Logic */
         .rotated-video {
             position: absolute !important;
             top: 50% !important;
@@ -166,14 +167,12 @@
     </div>
 
     <div id="playerUI">
-        <div class="video-container" id="videoContainer">
-            <!-- Video/Iframe goes here -->
-        </div>
+        <div class="video-container" id="videoContainer"></div>
 
         <div class="controls-grid">
             <button class="btn-control active" id="btnPortrait" onclick="setPortrait()">📱 Portrait</button>
             <button class="btn-control" id="btnLandscape" onclick="setLandscape()">🖥️ Landscape</button>
-            <button class="btn-control" id="btnPause" onclick="togglePlayPause()">⏯️ Pause</button>
+            <button class="btn-control" id="btnPause" onclick="togglePlayPause()">⏸️ Pause</button>
             <button class="btn-control" onclick="togglePiP()">📺 PiP</button>
         </div>
         
@@ -205,7 +204,7 @@
             if (!link) return alert("Please enter a link!");
 
             videoContainer.innerHTML = '';
-            setPortrait(); // Reset rotation
+            setPortrait(); 
             
             inputUI.style.display = 'none';
             playerUI.style.display = 'flex';
@@ -231,33 +230,33 @@
             currentMedia.playsInline = true;
             videoContainer.appendChild(currentMedia);
 
-            // Play Pause listener
             currentMedia.addEventListener('play', () => btnPause.innerHTML = '⏸️ Pause');
             currentMedia.addEventListener('pause', () => btnPause.innerHTML = '▶️ Play');
 
-            // HLS Setup
-            if (link.includes('.m3u8') || link.includes('.m3u')) {
-                if (Hls.isSupported()) {
-                    hlsInstance = new Hls({
-                        debug: false,
-                        enableWorker: true,
-                        lowLatencyMode: true
-                    });
-                    hlsInstance.loadSource(link);
-                    hlsInstance.attachMedia(currentMedia);
-                    hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => currentMedia.play().catch(e => console.log(e)));
-                    hlsInstance.on(Hls.Events.ERROR, function(event, data) {
-                        if (data.fatal) {
-                            console.error("HLS Error:", data);
-                        }
-                    });
-                } else if (currentMedia.canPlayType('application/vnd.apple.mpegurl')) {
-                    currentMedia.src = link;
-                    currentMedia.play().catch(e => console.log(e));
-                } else {
-                    alert("Your browser does not support HLS playback.");
-                }
+            // V10 FIX 3: Ultimate CORS Fallback Strategy
+            if (Hls.isSupported()) {
+                hlsInstance = new Hls({ debug: false, lowLatencyMode: true });
+                hlsInstance.loadSource(link);
+                hlsInstance.attachMedia(currentMedia);
+                
+                hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => currentMedia.play().catch(e => console.log(e)));
+                
+                // If HLS.js gets blocked by CORS, it throws a fatal error.
+                // We instantly catch it, destroy HLS.js, and fallback to NATIVE mobile playback.
+                // Mobile OS media players (unlike browser XHR) often ignore CORS rules!
+                hlsInstance.on(Hls.Events.ERROR, function(event, data) {
+                    if (data.fatal) {
+                        console.warn("HLS.js failed (likely CORS). Falling back to Native Player...");
+                        hlsInstance.destroy();
+                        hlsInstance = null;
+                        
+                        // Fallback: Direct injection triggers OS media player
+                        currentMedia.src = link;
+                        currentMedia.play().catch(e => console.log("Native fallback error:", e));
+                    }
+                });
             } else {
+                // For Safari / iOS which natively supports HLS without hls.js
                 currentMedia.src = link;
                 currentMedia.play().catch(e => console.log(e));
             }
