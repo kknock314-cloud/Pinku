@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#111111">
-    <meta name="referrer" content="no-referrer">
-    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
     <title>Universal Web Player</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
@@ -217,14 +215,13 @@
             backBtn.style.display = 'block';
             actionButtons.style.display = 'flex';
 
-            // V13 FIX: Better YouTube URL parsing including youtube.com/live/... links
+            // Better YouTube URL parsing
             if(link.includes('youtube.com') || link.includes('youtu.be')) {
                 let videoId = '';
                 
                 if (link.includes('youtu.be/')) {
                     videoId = link.split('youtu.be/')[1].split('?')[0];
                 } else if (link.includes('/live/')) {
-                    // Extract ID from youtube.com/live/VIDEO_ID
                     videoId = link.split('/live/')[1].split('?')[0];
                 } else if (link.includes('v=')) {
                     videoId = link.split('v=')[1].split('&')[0];
