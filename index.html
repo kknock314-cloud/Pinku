@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#111111">
     <title>Universal Web Player</title>
+    <!-- V8 FIX: Added HLS.js library for Live Streams (.m3u8) -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         body { 
             background: #000; 
@@ -138,7 +140,7 @@
         <div class="player-container" id="playerContainer">
             <div class="instructions">
                 <h2>Paste a link below to start.</h2>
-                <p>Supports direct video links (.mp4) and YouTube links.</p>
+                <p>Supports direct video links (.mp4, .m3u8 Live) and YouTube links.</p>
             </div>
         </div>
 
@@ -146,7 +148,7 @@
             <div class="row">
                 <button class="btn-back" id="backBtn" onclick="goBack()">🔙 Back to Home</button>
                 <div class="input-wrapper" id="inputWrapper">
-                    <input type="text" id="linkInput" placeholder="Paste Video Link here...">
+                    <input type="text" id="linkInput" placeholder="Paste Video/Live Link here...">
                     <button class="clear-btn" onclick="clearInput()">✖</button>
                 </div>
                 <button class="btn-play" id="playBtn" onclick="playVideo()">Play</button>
@@ -167,6 +169,7 @@
         const playBtn = document.getElementById('playBtn');
         const backBtn = document.getElementById('backBtn');
         let currentVideoElement = null;
+        let hlsInstance = null;
         
         let isRotated = false;
 
@@ -176,17 +179,19 @@
         }
 
         function goBack() {
-            // Restore instructions and clear video
+            if (hlsInstance) {
+                hlsInstance.destroy();
+                hlsInstance = null;
+            }
             container.innerHTML = `
                 <div class="instructions">
                     <h2>Paste a link below to start.</h2>
-                    <p>Supports direct video links (.mp4) and YouTube links.</p>
+                    <p>Supports direct video links (.mp4, .m3u8 Live) and YouTube links.</p>
                 </div>
             `;
             currentVideoElement = null;
             isRotated = false;
 
-            // Reset UI to step 1 (Input state)
             inputWrapper.style.display = 'flex';
             playBtn.style.display = 'block';
             backBtn.style.display = 'none';
@@ -207,7 +212,6 @@
             rotateBtn.innerHTML = '🔄 Rotate 90°';
             rotateBtn.style.background = '#e1b12c';
             
-            // Switch UI to step 2 (Player state)
             inputWrapper.style.display = 'none';
             playBtn.style.display = 'none';
             backBtn.style.display = 'block';
@@ -234,7 +238,6 @@
             }
 
             const video = document.createElement('video');
-            video.src = link;
             video.controls = true;
             video.autoplay = true;
             video.playsInline = true;
@@ -242,6 +245,29 @@
             container.appendChild(video);
             
             document.getElementById('pipBtn').style.display = 'block';
+
+            // V8 FIX: HLS (Live Stream .m3u8) Support Logic
+            if (link.includes('.m3u8') || link.includes('.m3u')) {
+                if (Hls.isSupported()) {
+                    hlsInstance = new Hls();
+                    hlsInstance.loadSource(link);
+                    hlsInstance.attachMedia(video);
+                    hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
+                        video.play();
+                    });
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    // For Safari (which supports HLS natively)
+                    video.src = link;
+                    video.addEventListener('loadedmetadata', function() {
+                        video.play();
+                    });
+                } else {
+                    alert("Aapka browser live streams support nahi karta.");
+                }
+            } else {
+                // Normal .mp4 links
+                video.src = link;
+            }
         }
 
         function rotateVideo() {
@@ -287,7 +313,7 @@
         async function togglePiP() {
             const videoElement = document.querySelector('video');
             if (!videoElement) {
-                alert("PiP is only available for direct video links (.mp4). For YouTube, click 'Fullscreen' and then swipe to Home!");
+                alert("PiP is only available for direct video links (.mp4, .m3u8). For YouTube, click 'Fullscreen' and then swipe to Home!");
                 return;
             }
             
