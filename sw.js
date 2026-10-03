@@ -1,4 +1,4 @@
-const CACHE_NAME = 'uniplayer-v2';
+const CACHE_NAME = 'uniplayer-v3';
 const ASSETS = [
   './',
   './index.html',
