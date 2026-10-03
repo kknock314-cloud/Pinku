@@ -141,7 +141,7 @@
         <div class="player-container" id="playerContainer">
             <div class="instructions">
                 <h2>Paste a link below to start.</h2>
-                <p>Supports direct video links (.mp4, .m3u8, .live) and YouTube links.</p>
+                <p>Supports YouTube (incl. /live), .mp4, .m3u8, and direct .live links.</p>
             </div>
         </div>
 
@@ -188,7 +188,7 @@
             container.innerHTML = `
                 <div class="instructions">
                     <h2>Paste a link below to start.</h2>
-                    <p>Supports direct video links (.mp4, .m3u8, .live) and YouTube links.</p>
+                    <p>Supports YouTube (incl. /live), .mp4, .m3u8, and direct .live links.</p>
                 </div>
             `;
             currentVideoElement = null;
@@ -200,7 +200,7 @@
         }
 
         function playVideo() {
-            const link = linkInput.value.trim();
+            let link = linkInput.value.trim();
             if (!link) {
                 alert("Please paste a link first!");
                 return;
@@ -217,12 +217,19 @@
             backBtn.style.display = 'block';
             actionButtons.style.display = 'flex';
 
+            // V13 FIX: Better YouTube URL parsing including youtube.com/live/... links
             if(link.includes('youtube.com') || link.includes('youtu.be')) {
                 let videoId = '';
-                if(link.includes('youtu.be/')) {
+                
+                if (link.includes('youtu.be/')) {
                     videoId = link.split('youtu.be/')[1].split('?')[0];
-                } else if(link.includes('v=')) {
+                } else if (link.includes('/live/')) {
+                    // Extract ID from youtube.com/live/VIDEO_ID
+                    videoId = link.split('/live/')[1].split('?')[0];
+                } else if (link.includes('v=')) {
                     videoId = link.split('v=')[1].split('&')[0];
+                } else if (link.includes('/embed/')) {
+                    videoId = link.split('/embed/')[1].split('?')[0];
                 }
 
                 if(videoId) {
@@ -233,6 +240,10 @@
                     container.appendChild(iframe);
                     document.getElementById('pipBtn').style.display = 'none';
                     currentVideoElement = iframe;
+                    return;
+                } else {
+                    alert("Could not extract YouTube Video ID. Please check the link.");
+                    goBack();
                     return;
                 }
             }
@@ -246,7 +257,6 @@
             
             document.getElementById('pipBtn').style.display = 'block';
 
-            // V12 FIX: Added .live to the live stream condition explicitly
             if (link.includes('.m3u8') || link.includes('.m3u') || link.includes('.live')) {
                 if (Hls.isSupported()) {
                     hlsInstance = new Hls({ debug: false });
