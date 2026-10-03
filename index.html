@@ -4,306 +4,320 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#111111">
-    <title>Universal Web Player</title>
-    <!-- V8 FIX: Added HLS.js library for Live Streams (.m3u8) -->
+    <!-- V9 FIX: This meta tag bypasses strict Referrer-based CORS blocks used by many live streams -->
+    <meta name="referrer" content="no-referrer">
+    <title>Stream Player</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         body { 
-            background: #000; 
+            background: #111111; 
             color: #fff; 
-            font-family: Arial, sans-serif; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
             margin: 0; 
+            padding: 15px;
             display: flex; 
             flex-direction: column; 
             height: 100dvh; 
+            box-sizing: border-box;
             overflow: hidden;
         }
-        .header {
-            text-align: center;
-            padding: 10px;
-            background: #111;
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: #00ffcc;
-            flex-shrink: 0;
+        .header-title {
+            color: #2ecc71;
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 4px;
         }
-        .main-content {
-            display: flex;
-            flex-direction: column;
-            flex: 1;
-            height: 100%;
-            overflow: hidden;
-        }
-        .player-container { 
-            flex: 1; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            background: #050505;
-            position: relative;
-            width: 100%;
-            overflow: hidden;
-        }
-        video, iframe { 
-            width: 100%; 
-            height: 100%; 
-            border: none; 
-            max-height: 100%;
-            object-fit: contain;
-            transition: transform 0.3s ease;
-            position: relative;
+        .header-sub {
+            color: #888;
+            font-size: 12px;
+            margin-bottom: 20px;
         }
         
+        .input-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        input {
+            flex: 1;
+            background: #222;
+            border: 1px solid #333;
+            padding: 12px 15px;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            outline: none;
+        }
+        input:focus {
+            border-color: #2ecc71;
+        }
+        .btn-play {
+            background: #2ecc71;
+            color: #000;
+            border: none;
+            padding: 0 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .video-container {
+            width: 100%;
+            background: #000;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            flex: 1; /* Takes available space */
+            min-height: 200px;
+        }
+        video, iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            object-fit: contain;
+            position: absolute;
+            transition: all 0.3s ease;
+        }
+        
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-shrink: 0;
+        }
+        .controls-grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            flex-shrink: 0;
+        }
+        
+        .btn-control {
+            background: #222;
+            border: 1px solid #333;
+            color: white;
+            padding: 12px 5px;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: 0.2s;
+        }
+        .btn-control:active { background: #333; }
+        .btn-control.active {
+            border-color: #2ecc71;
+            color: #2ecc71;
+        }
+        
+        .btn-close {
+            background: #3a1c1c;
+            color: #ff4757;
+            border: 1px solid #3a1c1c;
+        }
+        .btn-close:hover, .btn-close:active {
+            border-color: #ff4757;
+        }
+
+        .footer-text {
+            color: #888;
+            font-size: 12px;
+            margin-top: 20px;
+            line-height: 1.5;
+            flex-shrink: 0;
+        }
+
+        /* Landscape Mode Rotation Logic */
         .rotated-video {
             position: absolute !important;
             top: 50% !important;
             left: 50% !important;
             transform: translate(-50%, -50%) rotate(90deg) !important;
         }
-
-        .controls { 
-            padding: 12px; 
-            background: #222; 
-            display: flex; 
-            flex-direction: column;
-            gap: 10px; 
-            flex-shrink: 0; 
-            z-index: 10;
-        }
-        .row {
-            display: flex;
-            gap: 10px;
-            width: 100%;
-            align-items: center;
-        }
-        .input-wrapper {
-            display: flex;
-            flex: 1;
-            position: relative;
-        }
-        input { 
-            width: 100%;
-            padding: 12px; 
-            padding-right: 40px;
-            border-radius: 5px; 
-            border: 1px solid #444; 
-            background: #111;
-            color: white;
-            box-sizing: border-box;
-            font-size: 16px;
-        }
-        .clear-btn {
-            position: absolute;
-            right: 5px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: transparent;
-            border: none;
-            color: #888;
-            font-size: 1.2rem;
-            cursor: pointer;
-            padding: 5px 10px;
-        }
-        .clear-btn:hover { color: #ff4757; }
-        button { 
-            padding: 12px 10px; 
-            cursor: pointer; 
-            border-radius: 5px; 
-            border: none; 
-            background: #007bff; 
-            color: white; 
-            font-weight: bold; 
-            transition: 0.2s;
-            font-size: 14px;
-            text-align: center;
-        }
-        .btn-play { flex: 0.3; }
-        .btn-back { background: #fc5c65; color: white; flex: 1; display: none; }
-        .btn-back:hover { background: #eb3b5a; }
-        button:hover { background: #0056b3; opacity: 0.8; }
         
-        .btn-pip { background: #ff4757; flex: 1; }
-        .btn-rotate { background: #e1b12c; color: #000; flex: 1; }
-        .btn-fs { background: #4cd137; color: #000; flex: 1; }
-
-        .instructions {
-            text-align: center;
-            color: #888;
-            padding: 20px;
+        #playerUI {
+            display: none;
+            flex-direction: column;
+            flex: 1;
+        }
+        #inputUI {
+            display: flex;
+            flex-direction: column;
         }
     </style>
 </head>
 <body>
-    <div class="header">Universal Ad-Free Player</div>
+    <div class="header-title">Stream Player</div>
+    <div class="header-sub">Portrait · Landscape · PWA · No Ads</div>
     
-    <div class="main-content">
-        <div class="player-container" id="playerContainer">
-            <div class="instructions">
-                <h2>Paste a link below to start.</h2>
-                <p>Supports direct video links (.mp4, .m3u8 Live) and YouTube links.</p>
-            </div>
+    <div id="inputUI">
+        <div class="input-row">
+            <input type="text" id="linkInput" placeholder="YouTube / mp4 / m3u8 link...">
+            <button class="btn-play" onclick="playVideo()">Play</button>
+        </div>
+    </div>
+
+    <div id="playerUI">
+        <div class="video-container" id="videoContainer">
+            <!-- Video/Iframe goes here -->
         </div>
 
-        <div class="controls">
-            <div class="row">
-                <button class="btn-back" id="backBtn" onclick="goBack()">🔙 Back to Home</button>
-                <div class="input-wrapper" id="inputWrapper">
-                    <input type="text" id="linkInput" placeholder="Paste Video/Live Link here...">
-                    <button class="clear-btn" onclick="clearInput()">✖</button>
-                </div>
-                <button class="btn-play" id="playBtn" onclick="playVideo()">Play</button>
-            </div>
-            <div class="row" id="actionButtons" style="display: none;">
-                <button class="btn-rotate" id="rotateBtn" onclick="rotateVideo()">🔄 Rotate 90°</button>
-                <button class="btn-fs" onclick="toggleFullscreen()">🔲 Fullscreen</button>
-                <button class="btn-pip" onclick="togglePiP()" id="pipBtn">📺 PiP</button>
-            </div>
+        <div class="controls-grid">
+            <button class="btn-control active" id="btnPortrait" onclick="setPortrait()">📱 Portrait</button>
+            <button class="btn-control" id="btnLandscape" onclick="setLandscape()">🖥️ Landscape</button>
+            <button class="btn-control" id="btnPause" onclick="togglePlayPause()">⏯️ Pause</button>
+            <button class="btn-control" onclick="togglePiP()">📺 PiP</button>
+        </div>
+        
+        <div class="controls-grid-2">
+            <button class="btn-control" onclick="toggleFullscreen()">🔳 Fullscreen</button>
+            <button class="btn-control btn-close" onclick="closePlayer()">❌ Close</button>
+        </div>
+
+        <div class="footer-text">
+            Landscape = video full screen (phone seedha). Controls neeche safe area me.
         </div>
     </div>
 
     <script>
-        const container = document.getElementById('playerContainer');
-        const actionButtons = document.getElementById('actionButtons');
         const linkInput = document.getElementById('linkInput');
-        const inputWrapper = document.getElementById('inputWrapper');
-        const playBtn = document.getElementById('playBtn');
-        const backBtn = document.getElementById('backBtn');
-        let currentVideoElement = null;
-        let hlsInstance = null;
+        const videoContainer = document.getElementById('videoContainer');
+        const inputUI = document.getElementById('inputUI');
+        const playerUI = document.getElementById('playerUI');
         
-        let isRotated = false;
-
-        function clearInput() {
-            linkInput.value = '';
-            linkInput.focus();
-        }
-
-        function goBack() {
-            if (hlsInstance) {
-                hlsInstance.destroy();
-                hlsInstance = null;
-            }
-            container.innerHTML = `
-                <div class="instructions">
-                    <h2>Paste a link below to start.</h2>
-                    <p>Supports direct video links (.mp4, .m3u8 Live) and YouTube links.</p>
-                </div>
-            `;
-            currentVideoElement = null;
-            isRotated = false;
-
-            inputWrapper.style.display = 'flex';
-            playBtn.style.display = 'block';
-            backBtn.style.display = 'none';
-            actionButtons.style.display = 'none';
-        }
+        const btnPortrait = document.getElementById('btnPortrait');
+        const btnLandscape = document.getElementById('btnLandscape');
+        const btnPause = document.getElementById('btnPause');
+        
+        let currentMedia = null;
+        let hlsInstance = null;
 
         function playVideo() {
             const link = linkInput.value.trim();
-            if (!link) {
-                alert("Please paste a link first!");
-                return;
-            }
+            if (!link) return alert("Please enter a link!");
 
-            container.innerHTML = ''; 
+            videoContainer.innerHTML = '';
+            setPortrait(); // Reset rotation
             
-            isRotated = false;
-            const rotateBtn = document.getElementById('rotateBtn');
-            rotateBtn.innerHTML = '🔄 Rotate 90°';
-            rotateBtn.style.background = '#e1b12c';
-            
-            inputWrapper.style.display = 'none';
-            playBtn.style.display = 'none';
-            backBtn.style.display = 'block';
-            actionButtons.style.display = 'flex';
+            inputUI.style.display = 'none';
+            playerUI.style.display = 'flex';
 
             if(link.includes('youtube.com') || link.includes('youtu.be')) {
                 let videoId = '';
-                if(link.includes('youtu.be/')) {
-                    videoId = link.split('youtu.be/')[1].split('?')[0];
-                } else if(link.includes('v=')) {
-                    videoId = link.split('v=')[1].split('&')[0];
-                }
+                if(link.includes('youtu.be/')) videoId = link.split('youtu.be/')[1].split('?')[0];
+                else if(link.includes('v=')) videoId = link.split('v=')[1].split('&')[0];
 
                 if(videoId) {
-                    const iframe = document.createElement('iframe');
-                    iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
-                    iframe.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
-                    iframe.allowFullscreen = true;
-                    container.appendChild(iframe);
-                    document.getElementById('pipBtn').style.display = 'none';
-                    currentVideoElement = iframe;
+                    currentMedia = document.createElement('iframe');
+                    currentMedia.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+                    currentMedia.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
+                    currentMedia.allowFullscreen = true;
+                    videoContainer.appendChild(currentMedia);
                     return;
                 }
             }
 
-            const video = document.createElement('video');
-            video.controls = true;
-            video.autoplay = true;
-            video.playsInline = true;
-            currentVideoElement = video;
-            container.appendChild(video);
-            
-            document.getElementById('pipBtn').style.display = 'block';
+            currentMedia = document.createElement('video');
+            currentMedia.controls = true;
+            currentMedia.autoplay = true;
+            currentMedia.playsInline = true;
+            videoContainer.appendChild(currentMedia);
 
-            // V8 FIX: HLS (Live Stream .m3u8) Support Logic
+            // Play Pause listener
+            currentMedia.addEventListener('play', () => btnPause.innerHTML = '⏸️ Pause');
+            currentMedia.addEventListener('pause', () => btnPause.innerHTML = '▶️ Play');
+
+            // HLS Setup
             if (link.includes('.m3u8') || link.includes('.m3u')) {
                 if (Hls.isSupported()) {
-                    hlsInstance = new Hls();
+                    hlsInstance = new Hls({
+                        debug: false,
+                        enableWorker: true,
+                        lowLatencyMode: true
+                    });
                     hlsInstance.loadSource(link);
-                    hlsInstance.attachMedia(video);
-                    hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
-                        video.play();
+                    hlsInstance.attachMedia(currentMedia);
+                    hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => currentMedia.play().catch(e => console.log(e)));
+                    hlsInstance.on(Hls.Events.ERROR, function(event, data) {
+                        if (data.fatal) {
+                            console.error("HLS Error:", data);
+                        }
                     });
-                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                    // For Safari (which supports HLS natively)
-                    video.src = link;
-                    video.addEventListener('loadedmetadata', function() {
-                        video.play();
-                    });
+                } else if (currentMedia.canPlayType('application/vnd.apple.mpegurl')) {
+                    currentMedia.src = link;
+                    currentMedia.play().catch(e => console.log(e));
                 } else {
-                    alert("Aapka browser live streams support nahi karta.");
+                    alert("Your browser does not support HLS playback.");
                 }
             } else {
-                // Normal .mp4 links
-                video.src = link;
+                currentMedia.src = link;
+                currentMedia.play().catch(e => console.log(e));
             }
         }
 
-        function rotateVideo() {
-            if (!currentVideoElement) return;
+        function closePlayer() {
+            if (hlsInstance) {
+                hlsInstance.destroy();
+                hlsInstance = null;
+            }
+            if(currentMedia && currentMedia.tagName === 'VIDEO') {
+                currentMedia.pause();
+                currentMedia.src = "";
+            }
+            videoContainer.innerHTML = '';
+            currentMedia = null;
             
-            isRotated = !isRotated; 
-            const rotateBtn = document.getElementById('rotateBtn');
+            playerUI.style.display = 'none';
+            inputUI.style.display = 'flex';
+        }
 
-            if (isRotated) {
-                const cWidth = container.clientWidth;
-                const cHeight = container.clientHeight;
-                
-                currentVideoElement.style.width = cHeight + 'px';
-                currentVideoElement.style.height = cWidth + 'px';
-                
-                currentVideoElement.classList.add('rotated-video');
-                
-                rotateBtn.innerHTML = '🔄 Rotate 0°';
-                rotateBtn.style.background = '#e17055'; 
+        function setPortrait() {
+            if(!currentMedia) return;
+            btnPortrait.classList.add('active');
+            btnLandscape.classList.remove('active');
+            
+            currentMedia.style.width = '100%';
+            currentMedia.style.height = '100%';
+            currentMedia.classList.remove('rotated-video');
+        }
+
+        function setLandscape() {
+            if(!currentMedia) return;
+            btnLandscape.classList.add('active');
+            btnPortrait.classList.remove('active');
+            
+            const cWidth = videoContainer.clientWidth;
+            const cHeight = videoContainer.clientHeight;
+            
+            currentMedia.style.width = cHeight + 'px';
+            currentMedia.style.height = cWidth + 'px';
+            currentMedia.classList.add('rotated-video');
+        }
+
+        function togglePlayPause() {
+            if(!currentMedia || currentMedia.tagName !== 'VIDEO') return;
+            if(currentMedia.paused) {
+                currentMedia.play();
+                btnPause.innerHTML = '⏸️ Pause';
             } else {
-                currentVideoElement.style.width = '100%';
-                currentVideoElement.style.height = '100%';
-                currentVideoElement.classList.remove('rotated-video');
-                
-                rotateBtn.innerHTML = '🔄 Rotate 90°';
-                rotateBtn.style.background = '#e1b12c'; 
+                currentMedia.pause();
+                btnPause.innerHTML = '▶️ Play';
             }
         }
 
         function toggleFullscreen() {
-            if (!currentVideoElement) return;
-            
-            const elem = currentVideoElement; 
+            if (!currentMedia) return;
             if (!document.fullscreenElement) {
-                if (elem.requestFullscreen) elem.requestFullscreen();
-                else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+                if (currentMedia.requestFullscreen) currentMedia.requestFullscreen();
+                else if (currentMedia.webkitRequestFullscreen) currentMedia.webkitRequestFullscreen();
             } else {
                 if (document.exitFullscreen) document.exitFullscreen();
                 else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
@@ -311,25 +325,21 @@
         }
 
         async function togglePiP() {
-            const videoElement = document.querySelector('video');
-            if (!videoElement) {
-                alert("PiP is only available for direct video links (.mp4, .m3u8). For YouTube, click 'Fullscreen' and then swipe to Home!");
+            if (!currentMedia || currentMedia.tagName !== 'VIDEO') {
+                alert("PiP works for video files. For YouTube, press Fullscreen then swipe to home.");
                 return;
             }
-            
             try {
                 if (document.pictureInPictureElement) {
                     await document.exitPictureInPicture();
                 } else {
-                    if (videoElement.requestPictureInPicture) {
-                        await videoElement.requestPictureInPicture();
-                    } else {
-                        alert("Aapka browser PiP support nahi karta.");
+                    if (currentMedia.requestPictureInPicture) {
+                        await currentMedia.requestPictureInPicture();
                     }
                 }
             } catch (error) {
-                console.error("PiP Error: ", error);
-                alert("PiP failed. Play the video first.");
+                console.error(error);
+                alert("Play the video first to use PiP.");
             }
         }
     </script>
